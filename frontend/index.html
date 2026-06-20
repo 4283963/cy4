@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>探空气球 · 三维轨迹可视化</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./css/style.css" />
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="scene-container"></div>
+
+    <!-- HUD 数据面板 -->
+    <div class="hud hud-main">
+        <div class="hud-title">
+            <span class="dot"></span>
+            <span>探空数据实时面板</span>
+        </div>
+        <div class="hud-grid">
+            <div class="hud-cell">
+                <div class="hud-label">气球 ID</div>
+                <div class="hud-value mono" id="hud-balloon-id">--</div>
+            </div>
+            <div class="hud-cell">
+                <div class="hud-label">当前高度</div>
+                <div class="hud-value mono"><span id="hud-alt">0</span> <small>m</small></div>
+            </div>
+            <div class="hud-cell">
+                <div class="hud-label">气压</div>
+                <div class="hud-value mono"><span id="hud-pressure">0</span> <small>hPa</small></div>
+            </div>
+            <div class="hud-cell">
+                <div class="hud-label">温度</div>
+                <div class="hud-value mono"><span id="hud-temp">0</span> <small>°C</small></div>
+            </div>
+            <div class="hud-cell">
+                <div class="hud-label">风速</div>
+                <div class="hud-value mono"><span id="hud-wind">0</span> <small>m/s</small></div>
+            </div>
+            <div class="hud-cell">
+                <div class="hud-label">风向</div>
+                <div class="hud-value mono"><span id="hud-dir">0</span> <small>°</small></div>
+            </div>
+            <div class="hud-cell">
+                <div class="hud-label">上升率</div>
+                <div class="hud-value mono"><span id="hud-ascent">0</span> <small>m/s</small></div>
+            </div>
+            <div class="hud-cell">
+                <div class="hud-label">飞行时间</div>
+                <div class="hud-value mono"><span id="hud-time">0</span> <small>s</small></div>
+            </div>
+        </div>
+        <div class="hud-legend">
+            <div><span class="legend history"></span>历史航迹</div>
+            <div><span class="legend predict"></span>预测航迹</div>
+            <div><span class="legend burst"></span>爆裂点</div>
+            <div><span class="legend landing"></span>落点</div>
+        </div>
+    </div>
+
+    <!-- 控制面板 -->
+    <div class="hud hud-controls">
+        <button id="btn-load" class="btn-primary">
+            <span class="btn-icon">◈</span>
+            <span>加载演示数据</span>
+        </button>
+        <div class="seed-control">
+            <label>随机种子</label>
+            <input type="number" id="seed-input" value="42" min="0" max="99999" />
+        </div>
+        <button id="btn-reload" class="btn-secondary">
+            <span>重新推演</span>
+        </button>
+        <div class="divider"></div>
+        <div class="toggle-row">
+            <label class="switch">
+                <input type="checkbox" id="toggle-auto-rotate" checked />
+                <span class="slider"></span>
+            </label>
+            <span>自动视角</span>
+        </div>
+        <div class="toggle-row">
+            <label class="switch">
+                <input type="checkbox" id="toggle-animate" checked />
+                <span class="slider"></span>
+            </label>
+            <span>动画播放</span>
+        </div>
+        <div class="status" id="status-indicator">
+            <span class="status-dot"></span>
+            <span id="status-text">等待数据...</span>
+        </div>
+    </div>
+
+    <!-- 落点信息卡 -->
+    <div class="hud hud-landing" id="hud-landing">
+        <div class="hud-title small">
+            <span class="dot landing"></span>
+            <span>预测落点</span>
+        </div>
+        <div class="landing-coord">
+            <div><span class="coord-label">纬度</span><span class="mono" id="land-lat">--</span></div>
+            <div><span class="coord-label">经度</span><span class="mono" id="land-lon">--</span></div>
+            <div><span class="coord-label">预计飞行</span><span class="mono" id="land-time">--</span></div>
+        </div>
+    </div>
+
+    <div class="title-banner">
+        <h1>气象探空气球 · 轨迹推演系统</h1>
+        <p>基于流体力学压高公式 · 地转风反演 · RK4 数值积分</p>
+    </div>
+
+    <div class="loading-overlay" id="loading">
+        <div class="loader">
+            <div class="loader-ring"></div>
+            <div class="loader-text">正在接收探空数据...</div>
+        </div>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>
