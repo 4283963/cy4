@@ -397,30 +397,81 @@ function latLonAltToVec3(lat, lon, alt) {
     );
 }
 
+const WIND_COLOR_LOW = new THREE.Color(0x4ade80);
+const WIND_COLOR_MID = new THREE.Color(0xfacc15);
+const WIND_COLOR_HIGH = new THREE.Color(0xf87171);
+
+function windSpeedToColor(t) {
+    const tt = Math.max(0, Math.min(1, t));
+    if (tt < 0.5) {
+        return WIND_COLOR_LOW.clone().lerp(WIND_COLOR_MID, tt * 2);
+    } else {
+        return WIND_COLOR_MID.clone().lerp(WIND_COLOR_HIGH, (tt - 0.5) * 2);
+    }
+}
+
+function buildVertexColors(speeds) {
+    const colors = new Float32Array(speeds.length * 3);
+    let vmin = Infinity, vmax = -Infinity;
+    for (let i = 0; i < speeds.length; i++) {
+        if (speeds[i] < vmin) vmin = speeds[i];
+        if (speeds[i] > vmax) vmax = speeds[i];
+    }
+    const range = vmax - vmin;
+    for (let i = 0; i < speeds.length; i++) {
+        const t = range > 0 ? (speeds[i] - vmin) / range : 0.5;
+        const c = windSpeedToColor(t);
+        colors[i * 3] = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+    }
+    return colors;
+}
+
+function getWindSpeedRange(speeds) {
+    let vmin = Infinity, vmax = -Infinity;
+    for (let i = 0; i < speeds.length; i++) {
+        if (speeds[i] < vmin) vmin = speeds[i];
+        if (speeds[i] > vmax) vmax = speeds[i];
+    }
+    if (vmin === Infinity) return { min: 0, max: 0 };
+    return { min: vmin, max: vmax };
+}
+
 // ============================================================================
 // 创建轨迹与标记
 // ============================================================================
 
-function createTrajectoryLine(points, color, dashed) {
+function createTrajectoryLine(points, color, dashed, windSpeeds) {
     if (!points || points.length < 2) return null;
     try {
         const geo = new THREE.BufferGeometry().setFromPoints(points);
+        const useVertexColors = windSpeeds && windSpeeds.length === points.length;
+
+        if (useVertexColors) {
+            geo.setAttribute('color', new THREE.BufferAttribute(buildVertexColors(windSpeeds), 3));
+        }
+
         let mat;
         if (dashed) {
             mat = new THREE.LineDashedMaterial({
                 color: color, dashSize: 3, gapSize: 2,
                 transparent: true, opacity: 0.85,
+                vertexColors: useVertexColors,
             });
         } else {
             mat = new THREE.LineBasicMaterial({
                 color: color, transparent: true, opacity: 0.95,
+                vertexColors: useVertexColors,
             });
         }
         const line = new THREE.Line(geo, mat);
         if (dashed) line.computeLineDistances();
 
+        const glowColor = useVertexColors ? 0xffffff : color;
         const glowMat = new THREE.LineBasicMaterial({
-            color: color, transparent: true, opacity: 0.25,
+            color: glowColor, transparent: true, opacity: 0.25,
+            vertexColors: useVertexColors,
         });
         const glowLine = new THREE.Line(geo, glowMat);
 
@@ -619,21 +670,21 @@ function buildScene(data) {
     }
     clearScene();
 
-    const historyPoints = (data.states || [])
-        .filter(s => s && s.lat != null && s.lon != null)
-        .map(s => latLonAltToVec3(s.lat, s.lon, s.altitude_m));
+    const historyStates = (data.states || []).filter(s => s && s.lat != null && s.lon != null);
+    const historyPoints = historyStates.map(s => latLonAltToVec3(s.lat, s.lon, s.altitude_m));
+    const historyWindSpeeds = historyStates.map(s => (s.wind && s.wind.speed_mps) ? s.wind.speed_mps : 0);
 
     if (historyPoints.length >= 2) {
-        historyLine = createTrajectoryLine(historyPoints, 0xfb923c, false);
+        historyLine = createTrajectoryLine(historyPoints, 0xfb923c, false, historyWindSpeeds);
         if (historyLine) scene.add(historyLine);
     }
 
-    const predictPoints = (data.predicted_trajectory || [])
-        .filter(p => p && p.lat != null && p.lon != null)
-        .map(p => latLonAltToVec3(p.lat, p.lon, p.alt));
+    const predictStates = (data.predicted_trajectory || []).filter(p => p && p.lat != null && p.lon != null);
+    const predictPoints = predictStates.map(p => latLonAltToVec3(p.lat, p.lon, p.alt));
+    const predictWindSpeeds = predictStates.map(p => Math.hypot(p.wind_u || 0, p.wind_v || 0));
 
     if (predictPoints.length >= 2) {
-        predictedLine = createTrajectoryLine(predictPoints, 0x38bdf8, true);
+        predictedLine = createTrajectoryLine(predictPoints, 0x38bdf8, true, predictWindSpeeds);
         if (predictedLine) scene.add(predictedLine);
     }
 
